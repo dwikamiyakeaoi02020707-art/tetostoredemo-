@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TetoStore</title>
+    <style>
+        :root {
+            --bg-dark: #1e1e1e;
+            --sidebar-bg: rgba(45, 45, 45, 0.8);
+            --teto-red: #ff3b30;
+            --teto-red-hover: #d32f2f;
+            --teto-green: #34c759;
+            --text-main: #ffffff;
+            --text-muted: #9e9e9e;
+            --card-bg: #2a2a2a;
+            --border-color: #333;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: #000;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--text-main);
+            overflow: hidden;
+        }
+
+        /* --- SPLASH SCREEN --- */
+        #splash-screen {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background-color: #000; display: flex; justify-content: center; align-items: center;
+            z-index: 9999; transition: opacity 0.6s ease-out, visibility 0.6s ease-out;
+        }
+        .splash-content { display: flex; flex-direction: column; align-items: center; gap: 20px; animation: pulse 1.5s infinite; }
+        .splash-logo {
+            width: 100px; height: 100px; background: linear-gradient(135deg, var(--teto-red), #ff7b72);
+            border-radius: 25px; display: flex; justify-content: center; align-items: center;
+            font-size: 60px; color: white; font-weight: bold; box-shadow: 0 10px 30px rgba(255, 59, 48, 0.4);
+        }
+        .splash-text { font-size: 32px; font-weight: bold; letter-spacing: 1px; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        .hide-splash { opacity: 0; visibility: hidden; }
+
+        /* Window Container */
+        .teto-window {
+            width: 95%; max-width: 1200px; height: 85vh; background-color: var(--bg-dark);
+            border-radius: 12px; display: flex; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            border: 1px solid var(--border-color); opacity: 0; transform: scale(0.95); transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+        }
+        .teto-window.show { opacity: 1; transform: scale(1); }
+
+        /* Sidebar & AppStore Logo */
+        .sidebar {
+            width: 250px; background-color: var(--sidebar-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            display: flex; flex-direction: column; padding: 20px 15px; border-right: 1px solid var(--border-color); z-index: 10;
+        }
+        .window-controls { display: flex; gap: 8px; margin-bottom: 20px; }
+        .control { width: 12px; height: 12px; border-radius: 50%; }
+        .red { background-color: #ff5f56; }
+        .yellow { background-color: #ffbd2e; }
+        .green { background-color: #27c93f; }
+        
+        .sidebar-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; padding-left: 5px; }
+        .store-logo { width: 28px; height: 28px; background: linear-gradient(135deg, var(--teto-red), #ff7b72); border-radius: 8px; display: flex; justify-content: center; align-items: center; color: white; font-weight: bold; font-size: 16px; box-shadow: 0 4px 10px rgba(255, 59, 48, 0.3); }
+        .store-title { font-weight: 700; font-size: 18px; letter-spacing: 0.5px; }
+
+        .search-box { background-color: rgba(0,0,0,0.2); border-radius: 6px; padding: 8px 12px; display: flex; align-items: center; margin-bottom: 20px; border: 1px solid #444; }
+        .search-box input { background: none; border: none; color: white; outline: none; margin-left: 8px; width: 100%; }
+
+        .nav-menu { display: flex; flex-direction: column; gap: 5px; flex-grow: 1; }
+        .nav-item {
+            text-decoration: none; color: var(--text-main); padding: 10px 12px; border-radius: 8px;
+            display: flex; align-items: center; gap: 10px; font-size: 14px; transition: background 0.2s, color 0.2s; cursor: pointer;
+        }
+        .nav-item:hover { background-color: rgba(255, 255, 255, 0.1); }
+        .nav-item.active { background-color: var(--teto-red); font-weight: 600; }
+        .search-tab-mobile { display: none; } /* Hanya tampil di HP/Tablet */
+        
+        /* User Profile Button */
+        .user-profile { 
+            display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 12px; margin-top: auto; 
+            padding: 10px; border-radius: 8px; cursor: pointer; transition: background 0.2s;
+        }
+        .user-profile:hover { background-color: rgba(255, 255, 255, 0.1); }
+        .user-profile.active { background-color: rgba(255, 255, 255, 0.1); font-weight: bold; }
+        .avatar { width: 30px; height: 30px; background-color: #555; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; }
+
+        /* Main Content */
+        .content { flex-grow: 1; padding: 30px; overflow-y: auto; overflow-x: hidden; background-color: var(--bg-dark); position: relative; scroll-behavior: smooth; }
+        .view-section { display: none; animation: fadeIn 0.3s ease-in-out; }
+        .view-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* App Grid & Cards */
+        .app-grid { display: flex; flex-direction: column; gap: 20px; }
+        .app-card { background-color: var(--card-bg); border-radius: 16px; padding: 25px; position: relative; overflow: hidden; cursor: pointer; transition: transform 0.2s;}
+        .app-card:hover { transform: scale(1.02); }
+        .large-card { height: 300px; background: linear-gradient(to right, #2a2a2a, #3a2a2a); }
+        .bottom-grid { display: flex; gap: 20px; }
+        .small-card { flex: 1; height: 200px; }
+        .subtitle { font-size: 11px; color: var(--text-muted); font-weight: bold; letter-spacing: 1px; text-transform: uppercase; z-index: 2; position: relative;}
+        .card-info { z-index: 2; position: relative; }
+        .card-info h2, .card-info h3 { margin: 8px 0; }
+        .card-info p { font-size: 13px; color: var(--text-muted); margin-bottom: 15px; }
+        .btn-get { background-color: rgba(255, 255, 255, 0.1); color: white; border: none; padding: 6px 16px; border-radius: 15px; font-size: 13px; font-weight: bold; cursor: pointer; pointer-events: none; z-index: 2; position: relative;}
+        
+        .stk-card { background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); }
+        .steam-card { background: linear-gradient(135deg, #171a21, #1b2838); }
+        .epic-card { background: linear-gradient(135deg, #2a2a2a, #121212); }
+        .card-bg-img { position: absolute; right: -20px; bottom: -20px; opacity: 0.4; transition: transform 0.3s, opacity 0.3s; pointer-events: none;}
+        .app-card:hover .card-bg-img { transform: scale(1.1) rotate(-5deg); opacity: 0.6; }
+        
+        .oobe-banner { background: linear-gradient(135deg, #7b1fa2, var(--teto-red)); border-radius: 16px; padding: 30px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
+        .oobe-text h1 { font-size: 28px; margin-bottom: 10px; }
+        .oobe-text p { font-size: 14px; color: rgba(255,255,255,0.8); max-width: 400px; margin-bottom: 20px; }
+        .btn-primary { background-color: white; color: var(--teto-red); border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; cursor: pointer; transition: transform 0.2s; }
+        .btn-primary:hover { transform: scale(1.05); }
+        .oobe-illustration { font-size: 80px; }
+
+        /* APP DETAIL PAGE STYLES */
+        .app-detail-header { display: flex; gap: 25px; align-items: center; margin-bottom: 30px; }
+        .app-icon-large { min-width: 120px; width: 120px; height: 120px; background: linear-gradient(135deg, #1fa2ff, #12d8fa); border-radius: 24px; display: flex; justify-content: center; align-items: center; font-size: 60px; box-shadow: 0 10px 20px rgba(0,0,0,0.3); transition: background 0.3s; overflow: hidden;}
+        .app-icon-large img { width: 100%; height: 100%; object-fit: contain; padding: 15px; }
+        .app-title-info h1 { font-size: 28px; margin-bottom: 5px; }
+        .app-title-info p { font-size: 16px; color: var(--text-muted); margin-bottom: 15px; }
+        
+        /* Animasi Loading */
+        .btn-price { background-color: var(--teto-red); color: white; border: none; padding: 8px 24px; border-radius: 20px; font-weight: bold; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; min-width: 120px; transition: background 0.3s; }
+        .btn-price:hover:not(:disabled) { background-color: var(--teto-red-hover); }
+        .btn-price:disabled { opacity: 0.8; cursor: wait; }
+        .spinner { border: 2px solid rgba(255,255,255,0.3); border-top: 2px solid white; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite; margin-right: 8px; display: none; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* Stats & Gallery */
+        .app-stats-row { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); padding: 15px 10px; margin-bottom: 30px; text-align: center; }
+        .stat-col { display: flex; flex-direction: column; gap: 4px; min-width: 70px; }
+        .stat-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; font-weight: 600; }
+        .stat-val-main { font-size: 22px; font-weight: bold; color: var(--text-main); }
+        .stat-val-sub { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+        .stat-divider { width: 1px; height: 30px; background-color: var(--border-color); }
+        .screenshot-gallery { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 15px; scroll-snap-type: x mandatory; }
+        .screenshot-gallery::-webkit-scrollbar { height: 8px; }
+        .screenshot-gallery::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+        .screenshot-item { min-width: 450px; height: 260px; background-color: var(--card-bg); border-radius: 12px; display: flex; justify-content: center; align-items: center; border: 1px solid #333; position: relative; overflow: hidden; scroll-snap-align: start; }
+        .mock-ui { width: 100%; height: 100%; background: linear-gradient(to bottom, #dbe9f4, #f4f7f6); opacity: 0.9;}
+        .play-btn { position: absolute; width: 60px; height: 60px; background: rgba(0,0,0,0.5); border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; font-size: 24px; padding-left: 5px; }
+        .back-btn { background: none; border: none; color: var(--teto-red); font-size: 14px; cursor: pointer; margin-bottom: 20px; display: flex; align-items: center; gap: 5px; font-weight: bold; }
+
+        /* ACCOUNT VIEW STYLES */
+        .account-header { display: flex; align-items: center; gap: 20px; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color); }
+        .account-avatar { width: 80px; height: 80px; background-color: #555; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 32px; font-weight: bold; }
+        .account-info h1 { font-size: 24px; margin-bottom: 5px; }
+        .account-info p { color: var(--text-muted); font-size: 14px; }
+        .list-section-title { font-size: 18px; margin-bottom: 15px; font-weight: 600; color: #fff; }
+        .app-list-container { display: flex; flex-direction: column; gap: 15px; margin-bottom: 40px; }
+        .list-item { display: flex; align-items: center; background-color: var(--card-bg); padding: 15px 20px; border-radius: 12px; }
+        .list-icon { width: 50px; height: 50px; border-radius: 12px; display: flex; justify-content: center; align-items: center; font-size: 24px; margin-right: 15px; flex-shrink: 0; }
+        .list-details { flex-grow: 1; }
+        .list-details h4 { font-size: 16px; margin-bottom: 4px; }
+        .list-details p { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+        .btn-list-action { background-color: rgba(255, 255, 255, 0.1); color: white; border: none; padding: 6px 16px; border-radius: 15px; font-size: 13px; font-weight: bold; cursor: pointer; transition: background 0.2s; min-width: 80px; text-align: center; }
+        .btn-list-action:hover { background-color: var(--teto-red); }
+        .btn-list-action.downloading { background-color: var(--bg-dark); cursor: wait; color: var(--teto-red); border: 1px solid var(--teto-red); }
+
+        /* SEARCH VIEW STYLES */
+        .mobile-search-bar { display: flex; background: rgba(255,255,255,0.1); border-radius: 12px; padding: 12px 20px; align-items: center; margin-bottom: 30px; border: 1px solid var(--border-color); }
+        .mobile-search-bar input { background: none; border: none; color: white; width: 100%; font-size: 16px; outline: none; margin-left: 15px; }
+        .trending-tag { background: var(--card-bg); padding: 8px 16px; border-radius: 20px; font-size: 14px; color: var(--teto-red); cursor: pointer; transition: background 0.2s; border: 1px solid var(--border-color); }
+        .trending-tag:hover { background: rgba(255, 59, 48, 0.2); }
+
+        /* ==================================================
+           MEDIA QUERIES (RESPONSIVE)
+           ================================================== */
+           
+        /* Tablet & Surface (Portrait or small landscape) */
+        @media (max-width: 1024px) {
+            .teto-window { width: 100%; height: 100vh; border-radius: 0; border: none; }
+            .bottom-grid { flex-direction: column; }
+            .app-card.small-card { height: auto; min-height: 180px; }
+        }
+
+        /* Mobile Phones & Tablets Portrait (<= 768px - like iPad Mini Portrait) */
+        @media (max-width: 768px) {
+            .teto-window { flex-direction: column; height: 100dvh; }
+
+            /* Mengubah Sidebar menjadi Bottom Navigation */
+            .sidebar {
+                width: 100%; height: 65px; flex-direction: row; padding: 0; border-right: none;
+                border-top: 1px solid var(--border-color); order: 2; justify-content: space-around;
+                align-items: center; background-color: var(--bg-dark); z-index: 999;
+            }
+
+            .window-controls, .sidebar-header, .search-box { display: none; }
+            
+            /* Tampilkan Tab Search dan sembunyikan Create/Play biar nggak terlalu sempit */
+            .search-tab-mobile { display: flex; }
+            .nav-item[data-target="create"], .nav-item[data-target="play"] { display: none; }
+
+            .nav-menu { flex-direction: row; justify-content: space-around; width: 100%; margin-bottom: 0; }
+            .nav-item { flex-direction: column; gap: 4px; padding: 5px; font-size: 10px; background-color: transparent !important; color: var(--text-muted); }
+            .nav-item.active { color: var(--teto-red); }
+            .nav-item .icon { font-size: 20px; }
+
+            .user-profile { margin: 0; padding: 5px; flex-direction: column; background-color: transparent !important; color: var(--text-muted); }
+            .user-profile.active { color: var(--teto-red); }
+            .user-profile span.nav-text { display: none; }
+            .avatar { width: 24px; height: 24px; font-size: 10px; }
+
+            .content { order: 1; height: calc(100dvh - 65px); padding: 15px; }
+
+            .oobe-banner { flex-direction: column; text-align: center; padding: 25px 15px; }
+            .oobe-illustration { font-size: 60px; margin-bottom: 10px; }
+            .app-card { padding: 20px; }
+            .large-card { height: 280px; }
+            .card-bg-img { width: 140px !important; } 
+
+            .app-detail-header { flex-direction: column; text-align: center; gap: 15px; }
+            .app-icon-large { width: 100px; height: 100px; min-width: 100px; font-size: 45px; }
+            
+            .app-stats-row { justify-content: flex-start; gap: 25px; overflow-x: auto; padding: 15px 5px; margin-bottom: 20px; scroll-snap-type: x mandatory; }
+            .stat-divider { display: none; } 
+            .stat-col { scroll-snap-align: center; }
+            .screenshot-item { min-width: 260px; height: 150px; }
+
+            .list-item { flex-direction: column; align-items: flex-start; text-align: left; position: relative; padding: 15px; }
+            .btn-list-action { position: absolute; right: 15px; top: 15px; }
+            .list-details { margin-top: 10px; padding-right: 80px; } 
+        }
+    </style>
+</head>
+<body>
+
+    <div id="splash-screen">
+        <div class="splash-content">
+            <div class="splash-logo">T</div>
+            <div class="splash-text">TetoStore</div>
+        </div>
+    </div>
+
+    <div class="teto-window" id="main-app">
+        
+        <aside class="sidebar">
+            <div class="window-controls">
+                <div class="control red"></div>
+                <div class="control yellow"></div>
+                <div class="control green"></div>
+            </div>
+            
+            <div class="sidebar-header">
+                <div class="store-logo">T</div>
+                <span class="store-title">TetoStore</span>
+            </div>
+            
+            <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" placeholder="Search">
+            </div>
+
+            <nav class="nav-menu">
+                <div class="nav-item active" data-target="discover"><span class="icon">⭐</span> <span class="nav-text">Discover</span></div>
+                <div class="nav-item" data-target="arcade"><span class="icon">🕹️</span> <span class="nav-text">Arcade</span></div>
+                <div class="nav-item" data-target="create"><span class="icon">🎨</span> <span class="nav-text">Create</span></div>
+                <div class="nav-item" data-target="work"><span class="icon">💼</span> <span class="nav-text">Work</span></div>
+                <div class="nav-item" data-target="play"><span class="icon">🚀</span> <span class="nav-text">Play</span></div>
+                
+                <div class="nav-item search-tab-mobile" data-target="search"><span class="icon">🔍</span> <span class="nav-text">Cari</span></div>
+            </nav>
+
+            <div class="user-profile" id="btn-account">
+                <div class="avatar">MZ</div>
+                <span class="nav-text">MOHAMMAD ZAKI</span>
+            </div>
+        </aside>
+
+        <main class="content">
+            
+            <div id="discover-view" class="view-section active">
+                <section class="oobe-banner">
+                    <div class="oobe-text">
+                        <h1>Selamat Datang di TetoOS!</h1>
+                        <p>Temukan Jutaan Aplikasi & Game Keren di TetoStore. Mulai petualangan digitalmu sekarang juga.</p>
+                        <button class="btn-primary">Mulai Jelajah</button>
+                    </div>
+                    <div class="oobe-illustration">🤖</div>
+                </section>
+
+                <section class="app-grid">
+                    <div class="app-card large-card" data-title="Life's a lot to swallow" data-subtitle="Wrestle with your self-image" data-price="Dapatkan" data-icon="🧩" data-size="450" data-dev="Indie Dev" data-desc="Wrestle with your self-image in an insightful coming-of-age story. An emotional journey wrapped in beautiful art." data-color="linear-gradient(135deg, #ff9a9e, #fecfef)">
+                        <div class="card-info">
+                            <span class="subtitle">GAMES WE LOVE</span>
+                            <h2>Life's a lot to swallow</h2>
+                            <p>Wrestle with your self-image in an insightful coming-of-age story.</p>
+                            <button class="btn-get">Dapatkan</button>
+                        </div>
+                    </div>
+                    <div class="bottom-grid">
+                        <div class="app-card small-card" data-title="Poolsuite FM" data-subtitle="Ambil liburan aural" data-price="Dapatkan" data-icon="📻" data-size="85,4" data-dev="Poolsuite" data-desc="Poolsuite FM is all about those summer-radio feelings. Sit back, relax, and enjoy the retro aesthetic vibes." data-color="linear-gradient(135deg, #a18cd1, #fbc2eb)">
+                            <div class="card-info">
+                                <span class="subtitle">APPS WE LOVE</span>
+                                <h3>Ambil liburan aural</h3>
+                                <p>Poolsuite FM is all about those summer-radio feelings.</p>
+                                <button class="btn-get">Dapatkan</button>
+                            </div>
+                        </div>
+                        <div class="app-card small-card" data-title="Artistic Tools" data-subtitle="Flex your creativity" data-price="Dapatkan" data-icon="🎨" data-size="120,5" data-dev="Creative Inc" data-desc="Find the perfect tools for your artistic needs. Draw, paint, and express yourself seamlessly." data-color="linear-gradient(135deg, #84fab0, #8fd3f4)">
+                            <div class="card-info">
+                                <span class="subtitle">APPS WE LOVE</span>
+                                <h3>Flex your creativity</h3>
+                                <p>Find the perfect tools for your artistic needs.</p>
+                                <button class="btn-get">Dapatkan</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <div id="arcade-view" class="view-section">
+                <h2 style="margin-bottom: 20px;">TetoArcade - Launchers & Games</h2>
+                <section class="app-grid">
+                    
+                    <div class="app-card large-card stk-card" data-title="SuperTuxKart" data-subtitle="Open Source Classic" data-price="Dapatkan" data-img="https://files.catbox.moe/1ocs3i.png" data-size="850" data-dev="STK Team" data-desc="Game balap kart 3D open-source legendaris. Bawa maskot open-source favoritmu ke garis finis! Tersedia bawaan di TetoOS dan Windows." data-color="#142833">
+                        <div class="card-info">
+                            <span class="subtitle" style="color: #66d9ff;">OPEN SOURCE CLASSIC</span>
+                            <h2 style="font-size: 32px; margin-top: 10px;">SuperTuxKart</h2>
+                            <p style="max-width: 400px; font-size: 15px; color: #e0e0e0;">Game balap kart 3D open-source legendaris. Tersedia bawaan di TetoOS dan Windows.</p>
+                            <button class="btn-get" style="margin-top: 10px; background-color: var(--teto-red);">Dapatkan</button>
+                        </div>
+                        <img class="card-bg-img" src="https://files.catbox.moe/1ocs3i.png" style="width: 250px;">
+                    </div>
+
+                    <div class="bottom-grid">
+                        <div class="app-card small-card steam-card" data-title="Steam" data-subtitle="Game Launcher" data-price="Instal" data-img="https://files.catbox.moe/mg6c04.png" data-size="450" data-dev="Valve" data-desc="Platform game PC terbesar. Beli, mainkan, dan bergabunglah dengan komunitas gamer di seluruh dunia." data-color="#1b2838">
+                            <div class="card-info">
+                                <span class="subtitle">GAME LAUNCHER</span>
+                                <h3 style="color: #66c0f4; font-size: 22px;">Steam</h3>
+                                <p>Platform game PC terbesar di dunia.</p>
+                                <button class="btn-get">Instal</button>
+                            </div>
+                            <img class="card-bg-img" src="https://files.catbox.moe/mg6c04.png" style="width: 130px; bottom: 0px; right: 0px; opacity: 0.6;">
+                        </div>
+
+                        <div class="app-card small-card epic-card" data-title="Epic Games Store" data-subtitle="Game Launcher" data-price="Instal" data-img="https://files.catbox.moe/uuaelj.png" data-size="300" data-dev="Epic Games" data-desc="Klaim game gratis setiap hari Kamis dan mainkan berbagai rilis eksklusif yang memukau." data-color="#121212">
+                            <div class="card-info">
+                                <span class="subtitle">GAME LAUNCHER</span>
+                                <h3 style="font-size: 22px;">Epic Games Store</h3>
+                                <p>Klaim game gratis setiap hari Kamis.</p>
+                                <button class="btn-get">Instal</button>
+                            </div>
+                            <img class="card-bg-img" src="https://files.catbox.moe/uuaelj.png" style="width: 100px; bottom: 20px; right: 20px; opacity: 0.5;">
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <div id="work-view" class="view-section">
+                <h2 style="margin-bottom: 20px;">Produktivitas & Kerja</h2>
+                <div class="app-grid">
+                    <div class="app-card" data-title="MacFamilyTree 11" data-subtitle="Modern family history" data-price="Rp 599ribu" data-icon="🌳" data-size="191,2" data-dev="Synium Software" data-desc="<strong>50% discount - for a limited time only!</strong><br><br>Experience and discover your family history as vivid and versatile as never before. Immerse yourself in the fascinating world of genealogy and explore your family tree through impressive 3D views, meaningful diagrams, insightful reports..." data-color="linear-gradient(135deg, #1fa2ff, #12d8fa)" style="display: flex; gap: 20px; align-items: center; padding: 20px;">
+                        <div style="width: 80px; height: 80px; min-width:80px; background: linear-gradient(135deg, #1fa2ff, #12d8fa); border-radius: 18px; display: flex; justify-content: center; align-items: center; font-size: 40px;">🌳</div>
+                        <div class="card-info" style="flex-grow: 1;">
+                            <h2 style="margin:0;">MacFamilyTree 11</h2>
+                            <p style="margin: 5px 0 0 0;">Modern family history</p>
+                        </div>
+                        <button class="btn-get" style="background-color: var(--teto-red);">Rp 599ribu</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="account-view" class="view-section">
+                <div class="account-header">
+                    <div class="account-avatar">MZ</div>
+                    <div class="account-info">
+                        <h1>Mohammad Zaki</h1>
+                        <p>mzaki@tetoos.id</p>
+                    </div>
+                </div>
+
+                <h3 class="list-section-title">Pembaruan Tersedia</h3>
+                <div class="app-list-container">
+                    <div class="list-item">
+                        <div class="list-icon" style="background: linear-gradient(135deg, #ff9a9e, #fecfef);">🌐</div>
+                        <div class="list-details">
+                            <h4>TetoBrowser</h4>
+                            <p>Versi 2.4.1 • Pembaruan keamanan minor dan perbaikan bug rendering.</p>
+                        </div>
+                        <button class="btn-list-action update-btn">Update</button>
+                    </div>
+                    <div class="list-item">
+                        <div class="list-icon" style="background: linear-gradient(135deg, #f6d365, #fda085);">🎵</div>
+                        <div class="list-details">
+                            <h4>TetoMusic</h4>
+                            <p>Versi 1.8.0 • Menambahkan dukungan equalizer dan antarmuka dark mode baru.</p>
+                        </div>
+                        <button class="btn-list-action update-btn">Update</button>
+                    </div>
+                </div>
+
+                <h3 class="list-section-title">Riwayat Unduhan</h3>
+                <div class="app-list-container">
+                    <div class="list-item">
+                        <div class="list-icon" style="background: linear-gradient(135deg, #a18cd1, #fbc2eb);">📝</div>
+                        <div class="list-details">
+                            <h4>TetoNotes</h4>
+                            <p>Diunduh pada 12 Agu 2026</p>
+                        </div>
+                        <button class="btn-list-action" style="background: none; border: 1px solid #555;">Buka</button>
+                    </div>
+                    <div class="list-item">
+                        <div class="list-icon" style="background: linear-gradient(135deg, #84fab0, #8fd3f4);">📸</div>
+                        <div class="list-details">
+                            <h4>PhotoMagic AI</h4>
+                            <p>Diunduh pada 05 Agu 2026</p>
+                        </div>
+                        <button class="btn-list-action" style="background: none; border: 1px solid #555;">Buka</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="search-view" class="view-section">
+                <h1 style="margin-bottom: 20px;">Cari Aplikasi & Game</h1>
+                
+                <div class="mobile-search-bar">
+                    <span style="font-size: 20px;">🔍</span>
+                    <input type="text" placeholder="Game, Aplikasi, Edukasi...">
+                </div>
+
+                <h3 style="margin-bottom: 15px; color: var(--text-muted);">Pencarian Populer</h3>
+                <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                    <span class="trending-tag">SuperTuxKart</span>
+                    <span class="trending-tag">Steam</span>
+                    <span class="trending-tag">MacFamilyTree</span>
+                    <span class="trending-tag">TetoBrowser</span>
+                    <span class="trending-tag">Heroic Games Launcher</span>
+                </div>
+            </div>
+
+            <div id="app-detail-view" class="view-section">
+                <button class="back-btn" id="btn-back"><span>&larr;</span> Kembali</button>
+                
+                <div class="app-detail-header">
+                    <div class="app-icon-large" id="detail-icon">🌳</div>
+                    <div class="app-title-info">
+                        <h1 id="detail-title">MacFamilyTree 11</h1>
+                        <p id="detail-subtitle">Modern family history</p>
+                        <button class="btn-price" id="detail-price">
+                            <span class="spinner" id="btn-spinner"></span>
+                            <span id="btn-text">Rp 599ribu</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="app-stats-row">
+                    <div class="stat-col"><span class="stat-label">9 RATINGS</span><span class="stat-val-main">5.0</span><span class="stat-val-sub">★★★★★</span></div>
+                    <div class="stat-divider"></div>
+                    <div class="stat-col"><span class="stat-label">AGE</span><span class="stat-val-main">4+</span><span class="stat-val-sub">Years Old</span></div>
+                    <div class="stat-divider"></div>
+                    <div class="stat-col"><span class="stat-label">CHART</span><span class="stat-val-main">No. 3</span><span class="stat-val-sub" id="detail-chart">Productivity</span></div>
+                    <div class="stat-divider"></div>
+                    <div class="stat-col"><span class="stat-label">DEVELOPER</span><span class="stat-val-main">👤</span><span class="stat-val-sub" id="detail-dev">Synium</span></div>
+                    <div class="stat-divider"></div>
+                    <div class="stat-col"><span class="stat-label">LANGUAGE</span><span class="stat-val-main">EN</span><span class="stat-val-sub">+ 14 More</span></div>
+                    <div class="stat-divider"></div>
+                    <div class="stat-col"><span class="stat-label">SIZE</span><span class="stat-val-main" id="detail-size">191,2</span><span class="stat-val-sub">MB</span></div>
+                </div>
+
+                <div class="screenshot-gallery">
+                    <div class="screenshot-item"><div class="mock-ui"><div style="display:flex; justify-content:center; align-items:center; height:100%; color:#aaa; font-size:20px;">(Screenshot 1)</div></div></div>
+                    <div class="screenshot-item">
+                        <div class="mock-ui"><div style="display:flex; justify-content:center; align-items:center; height:100%; color:#aaa; font-size:20px;">(Screenshot 2)</div></div>
+                        <div class="play-btn">▶</div>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 20px; color: var(--text-muted); font-size: 14px; line-height: 1.6; padding-bottom: 30px;" id="detail-desc">
+                    <p>Experience and discover your family history as vivid and versatile as never before.</p>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            // --- SPLASH SCREEN ---
+            const splashScreen = document.getElementById('splash-screen');
+            const mainApp = document.getElementById('main-app');
+
+            setTimeout(() => {
+                splashScreen.classList.add('hide-splash');
+                mainApp.classList.add('show');
+                setTimeout(() => splashScreen.remove(), 600);
+            }, 2500);
+
+            // --- VIEW NAVIGATION ---
+            const navItems = document.querySelectorAll(".nav-item");
+            const btnAccount = document.getElementById("btn-account");
+            const mainContent = document.querySelector(".content");
+            
+            const views = {
+                'discover': document.getElementById('discover-view'),
+                'arcade': document.getElementById('arcade-view'),
+                'work': document.getElementById('work-view'),
+                'search': document.getElementById('search-view'),
+                'account': document.getElementById('account-view'),
+                'appDetail': document.getElementById('app-detail-view')
+            };
+
+            let previousTab = views['discover'];
+
+            function switchView(targetId) {
+                navItems.forEach(nav => nav.classList.remove("active"));
+                btnAccount.classList.remove("active");
+
+                Object.values(views).forEach(v => { if(v) v.classList.remove('active'); });
+                mainContent.scrollTop = 0; 
+
+                if(views[targetId]) {
+                    views[targetId].classList.add('active');
+                    if(targetId !== 'appDetail') {
+                        previousTab = views[targetId];
+                    }
+                }
+            }
+
+            navItems.forEach(item => {
+                item.addEventListener("click", function(e) {
+                    e.preventDefault();
+                    const target = this.getAttribute("data-target");
+                    if(!views[target] && target !== 'create' && target !== 'play') return;
+                    
+                    switchView(target);
+                    this.classList.add("active");
+                });
+            });
+
+            btnAccount.addEventListener("click", () => {
+                switchView('account');
+                btnAccount.classList.add("active");
+            });
+
+            // --- DYNAMIC APP CARDS TO DETAIL VIEW ---
+            const appCards = document.querySelectorAll('.app-card');
+            const detailPriceBtn = document.getElementById('detail-price');
+            const btnText = document.getElementById('btn-text');
+            const btnSpinner = document.getElementById('btn-spinner');
+            
+            appCards.forEach(card => {
+                card.addEventListener('click', function() {
+                    const title = this.getAttribute('data-title');
+                    if(!title) return;
+
+                    const subtitle = this.getAttribute('data-subtitle');
+                    const price = this.getAttribute('data-price');
+                    const icon = this.getAttribute('data-icon');
+                    const img = this.getAttribute('data-img');
+                    const size = this.getAttribute('data-size');
+                    const dev = this.getAttribute('data-dev');
+                    const desc = this.getAttribute('data-desc');
+                    const color = this.getAttribute('data-color');
+
+                    document.getElementById('detail-title').innerText = title;
+                    document.getElementById('detail-subtitle').innerText = subtitle;
+                    
+                    detailPriceBtn.disabled = false;
+                    detailPriceBtn.style.backgroundColor = 'var(--teto-red)';
+                    detailPriceBtn.style.color = 'white';
+                    detailPriceBtn.style.border = 'none';
+                    btnSpinner.style.display = 'none';
+                    btnText.innerText = price;
+                    
+                    const iconContainer = document.getElementById('detail-icon');
+                    if (img) {
+                        iconContainer.innerHTML = `<img src="${img}" alt="${title} Logo">`;
+                        iconContainer.style.background = color || "var(--card-bg)";
+                    } else {
+                        iconContainer.innerHTML = icon;
+                        iconContainer.style.background = color || "linear-gradient(135deg, #1fa2ff, #12d8fa)";
+                    }
+
+                    document.getElementById('detail-size').innerText = size;
+                    document.getElementById('detail-dev').innerText = dev;
+                    document.getElementById('detail-desc').innerHTML = `<p>${desc}</p>`;
+
+                    Object.values(views).forEach(v => { if(v) v.classList.remove('active'); });
+                    views.appDetail.classList.add('active');
+                    mainContent.scrollTop = 0; 
+                });
+            });
+
+            // --- FAKE DOWNLOAD LISTENER ---
+            detailPriceBtn.addEventListener('click', function() {
+                if (btnText.innerText === 'Buka') {
+                    alert("Membuka " + document.getElementById('detail-title').innerText + "...");
+                    return;
+                }
+
+                this.disabled = true;
+                btnText.innerText = 'Mengunduh...';
+                btnSpinner.style.display = 'inline-block';
+
+                setTimeout(() => {
+                    this.disabled = false;
+                    btnSpinner.style.display = 'none';
+                    btnText.innerText = 'Buka';
+                    this.style.backgroundColor = 'transparent';
+                    this.style.border = '1px solid var(--teto-green)';
+                    this.style.color = 'var(--teto-green)';
+                }, 2500);
+            });
+
+            // --- FAKE UPDATE LISTENER ---
+            const updateBtns = document.querySelectorAll('.update-btn');
+            updateBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    if (this.innerText === 'Buka') return;
+                    
+                    this.classList.add('downloading');
+                    this.innerHTML = '<span class="spinner" style="display:inline-block; width:12px; height:12px; border-width: 2px; margin:0;"></span>';
+                    
+                    setTimeout(() => {
+                        this.classList.remove('downloading');
+                        this.innerText = 'Buka';
+                        this.style.background = 'none';
+                        this.style.border = '1px solid #555';
+                        this.style.color = 'white';
+                    }, 3000);
+                });
+            });
+
+            // --- TOMBOL KEMBALI ---
+            document.getElementById('btn-back').addEventListener('click', () => {
+                views.appDetail.classList.remove('active');
+                if(previousTab) previousTab.classList.add('active');
+                mainContent.scrollTop = 0;
+            });
+        });
+    </script>
+</body>
+</html>
